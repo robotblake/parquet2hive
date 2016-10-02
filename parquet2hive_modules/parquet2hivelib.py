@@ -62,11 +62,8 @@ def get_bash_cmd(dataset, success_only = False, recent_versions = None, version 
             continue
 
         sys.stderr.write("Analyzing dataset {}, {}\n".format(dataset_name, version))
-        s3_client = boto3.client('s3')
-        tmp_file = NamedTemporaryFile()
-        s3_client.download_file(key.bucket_name, key.key, tmp_file.name)
 
-        schema = read_schema(tmp_file.name)
+        schema = read_schema('s3://{}/{}'.format(key.bucket_name, key.key))
 
         partitions = get_partitioning_fields(key.key[len(prefix):])
 
@@ -82,15 +79,36 @@ def get_bash_cmd(dataset, success_only = False, recent_versions = None, version 
 
 
 def read_schema(file_name):
-    # open file
-    fileobj = open(file_name, 'rb')
+    if file_name.startswith('s3://'):
+        # get bucket and key
+        bucket, key = file_name[5:].split('/', 1)
 
-    # read footer size
-    fileobj.seek(-8, 2)
-    footer_size = struct.unpack('<i', fileobj.read(4))[0]
+        # create s3 obj
+        s3res = boto3.resource('s3')
+        s3obj = s3res.Object(bucket, key)
+        s3obj.load()
 
-    # seek to beginning of footer
-    fileobj.seek(-8 - footer_size, 2)
+        # get footer size
+        offset = s3obj.content_length - 8
+        response = s3obj.get(Range='bytes={}-'.format(offset))
+        footer_size = struct.unpack('<i', response['Body'].read(4))[0]
+
+        # get footer range of file
+        offset = s3obj.content_length - 8 - footer_size
+        response = s3obj.get(Range='bytes={}-'.format(offset))
+
+        # set fileobj to response body
+        fileobj = response['Body']
+    else:
+        # open file
+        fileobj = open(file_name, 'rb')
+
+        # read footer size
+        fileobj.seek(-8, 2)
+        footer_size = struct.unpack('<i', fileobj.read(4))[0]
+
+        # seek to beginning of footer
+        fileobj.seek(-8 - footer_size, 2)
 
     # read metadata
     transport = TTransport.TFileObjectTransport(fileobj)

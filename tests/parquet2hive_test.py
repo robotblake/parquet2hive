@@ -408,3 +408,40 @@ class TestReadSchema:
         }
 
         assert lib.read_schema(new_dataset_file) == schema
+
+    @mock_s3
+    def test_read_schema_from_s3(self):
+        _setup_module()
+
+        schema = {
+            u'fields': [
+                {u'metadata': {}, u'type': u'string', u'name': u'clientId', u'nullable': True},
+                {u'metadata': {}, u'type': u'integer', u'name': u'sampleId', u'nullable': True},
+                {u'metadata': {}, u'type': u'string', u'name': u'channel', u'nullable': True},
+                {u'metadata': {}, u'type': u'string', u'name': u'normalizedChannel', u'nullable': True},
+                {u'metadata': {}, u'type': u'string', u'name': u'country', u'nullable': True},
+                {u'metadata': {}, u'type': u'integer', u'name': u'profileCreationDate', u'nullable': True},
+                {u'metadata': {}, u'type': u'string', u'name': u'subsessionStartDate', u'nullable': True},
+                {u'metadata': {}, u'type': u'integer', u'name': u'subsessionLength', u'nullable': True},
+                {u'metadata': {}, u'type': u'string', u'name': u'distributionId', u'nullable': True},
+                {u'metadata': {}, u'type': u'string', u'name': u'submissionDate', u'nullable': True},
+                {u'metadata': {}, u'type': u'boolean', u'name': u'syncConfigured', u'nullable': True},
+                {u'metadata': {}, u'type': u'integer', u'name': u'syncCountDesktop', u'nullable': True},
+                {u'metadata': {}, u'type': u'integer', u'name': u'syncCountMobile', u'nullable': True},
+                {u'metadata': {}, u'type': u'string', u'name': u'version', u'nullable': True},
+                {u'metadata': {}, u'type': u'long', u'name': u'timestamp', u'nullable': True},
+                {u'metadata': {}, u'type': u'boolean', u'name': u'e10sEnabled', u'nullable': True},
+                {u'metadata': {}, u'type': u'string', u'name': u'e10sCohort', u'nullable': True}
+            ],
+            u'type': u'struct'
+        }
+
+        key = 'testing/this/out'
+        with open(dataset_file, 'rb') as fileobj:
+            s3_client.put_object(
+                Bucket=bucket_name,
+                Key=key,
+                Body=fileobj
+            )
+
+        assert lib.read_schema('s3://{}/{}'.format(bucket_name, key)) == schema
